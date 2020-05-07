@@ -1,106 +1,85 @@
-from flask import Flask, json, request
-from jsonschema import validate
+import db19_pb2_grpc
+import db19_pb2
 import time
 import logging
-import base64
+from concurrent import futures
+import grpc
 from datetime import datetime
+from util import dt_to_enin
 import psycopg2
 import psycopg2.extras
-from util import encodeb64, dt_to_enin
 logging.basicConfig(level=logging.INFO)
 
-app = Flask(__name__, static_url_path='')
-while True:
-    try:
-        conn = psycopg2.connect("dbname=covid19 user=covid19 port=5432\
-                                 password=covid19databasepassword \
-                                 host=diagnosis-db")
-        # psycopg2.extras.register_hstore(conn)
-        break
-    except psycopg2.OperationalError:
-        logging.info("Could not connect to DB; retrying...")
-        time.sleep(1)
-        continue
 
+class DB19Server(db19_pb2_grpc.DiagnosisDBServicer):
+    def __init__(self):
+        while True:
+            try:
+                self.conn = psycopg2.connect("dbname=covid19 user=covid19 \
+                                             port=5432 host=diagnosis-db \
+                                             password=covid19databasepassword")
+                # psycopg2.extras.register_hstore(conn)
+                break
+            except psycopg2.OperationalError:
+                logging.info("Could not connect to DB; retrying...")
+                time.sleep(1)
+                continue
 
-report_schema = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["authority", "reports"],
-    "properties": {
-        # health authority opaque key
-        "authority": {"type": "string"},
-        # reports from user
-        "reports": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "TEK": {"type": "string"},
-                    "ENIN": {"type": "integer"}
-                }
-            }
-        },
-        "metadata": {"type": "object"}
-    }
-}
+    def check_authority(self, hak):
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT * FROM health_authorities WHERE HAK=%s",
+                        (hak,))
+            return cur.fetchone() is not None
 
+    def insert_report(self, reports):
+        with self.conn.cursor() as cur:
+            ins = "INSERT INTO reported_keys(TEK, ENIN, HAK) VALUES \
+                   (%s, %s, %s) ON CONFLICT DO NOTHING"
+            cur.executemany(ins, reports)
+        self.conn.commit()
 
-def check_authority(hak):
-    with conn.cursor() as cur:
-        cur.execute("SELECT * FROM health_authorities WHERE HAK=%s", (hak,))
-        return cur.fetchone() is not None
-
-
-def insert_report(reports):
-    with conn.cursor() as cur:
-        ins = "INSERT INTO reported_keys(TEK, ENIN, HAK) VALUES (%s, %s, %s) \
-               ON CONFLICT DO NOTHING"
-        cur.executemany(ins, reports)
-    conn.commit()
-
-
-@app.route('/add-report', methods=['POST'])
-def add_report():
-    try:
-        datum = request.get_json(force=True)
-        validate(datum, schema=report_schema)
-
+    def AddReport(self, request, context):
         # TODO: check validity of authority
-        authority_key = base64.decodebytes(bytes(datum['authority'], 'utf8'))
-        if len(authority_key) != 16:
-            raise Exception("Invalid authority length")
-        if not check_authority(authority_key):
-            raise Exception("Invalid authority value")
+        try:
+            authority_key = request.authority
+            if len(authority_key) != 16:
+                raise Exception("Invalid authority length")
+            if not self.check_authority(authority_key):
+                raise Exception("Invalid authority value")
 
-        to_insert = []
-        logging.info(f"validating reports: {len(datum['reports'])}")
-        for report in datum['reports']:
-            tek = base64.decodebytes(bytes(report['TEK'], 'utf8'))
-            if len(tek) != 16:
-                raise Exception("Invalid TEK")
-            timestamp = datetime.utcfromtimestamp(int(report['ENIN']) * 600)
-            to_insert.append((tek, timestamp, authority_key))
-        logging.info(f"inserting reports: {len(to_insert)}")
-        insert_report(to_insert)
-        return json.jsonify({}), 200
-    except Exception as e:
-        logging.error(e)
-        return json.jsonify({'error': str(e)}), 500
+            to_insert = []
+            logging.info(f"validating reports: {len(request.reports)}")
+            for report in request.reports:
+                tek = report.TEK
+                if len(tek) != 16:
+                    raise Exception("Invalid TEK")
+                timestamp = datetime.utcfromtimestamp(report.ENIN * 600)
+                to_insert.append((tek, timestamp, authority_key))
+            logging.info(f"inserting reports: {len(to_insert)}")
+            self.insert_report(to_insert)
+            return db19_pb2.AddReportResponse()
+        except Exception as e:
+            return db19_pb2.AddReportResponse(error=str(e))
 
-
-@app.route('/get-diagnosis-keys', methods=['GET'])
-def get_diagnosis_keys():
-    result = []
-    with conn.cursor() as cur:
-        cur.execute("SELECT TEK, ENIN FROM reported_keys")
-        for row in cur:
-            tek_b, enin_ts = row
-            tek = encodeb64(bytes(tek_b))
-            enin = dt_to_enin(enin_ts)
-            result.append({'TEK': tek, 'ENIN': enin})
-    return json.jsonify(result), 200
+    def GetDiagnosisKeys(self, request, context):
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("SELECT TEK, ENIN FROM reported_keys")
+                for row in cur:
+                    tek_b, enin_ts = row
+                    tek = bytes(tek_b)
+                    enin = dt_to_enin(enin_ts)
+                    yield db19_pb2.GetDiagnosisKeyResponse(
+                        record=db19_pb2.TimestampedTEK(TEK=tek, ENIN=enin)
+                    )
+        except Exception as e:
+            yield db19_pb2.GetDiagnosisKeyResponse(error=str(e))
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port='8080', debug=True)
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    db19_pb2_grpc.add_DiagnosisDBServicer_to_server(DB19Server(), server)
+    server.add_insecure_port('[::]:5000')
+    logging.info("Starting server")
+    server.start()
+    server.wait_for_termination()

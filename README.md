@@ -39,7 +39,7 @@ docker-compose up
 
 This should bring up:
 - Diagnosis Postgres backend (port 5434)
-- Diagnosis Postgres API (port 5000)
+- Diagnosis Postgres GRPC API (port 5000)
 
 
 ## Reporting (DiagnosisDB)
@@ -50,56 +50,44 @@ Currently we are using a random 16-byte key as the "API key" for an authority. T
 - `2iUNf7/8pjS/mzjpQwUIuw==`
 - `V3Qpwr4TU7CICdwowL9rwA==`
 
-Reports have the following JSON schema and are POST-ed to `/add-report`
+Reports use the `AddReport(Report)` GRPC call
 
-```json
-{
-    "type": "object",
-    "additionalProperties": False,
-    "properties": {
-        "authority": {"type": "string"},
-        "reports": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "TEK": {"type": "string"},
-                    "ENIN": {"type": "integer"}
-                }
-            }
-        },
-        "metadata": {"type": "object"}
-    }
+```protobuf
+// sent message
+message Report {
+    bytes authority = 1;
+    repeated TimestampedTEK reports = 2;
+}
+
+message TimestampedTEK {
+    bytes TEK = 1;
+    uint32 ENIN = 2;
+}
+
+// response received
+message AddReportResponse {
+    string error = 1;
 }
 ```
 
-All binary data (TEKs and authority keys) are encoded with base64 for transit.
-
-**Example**: see `diagnosis-api/post.py`
+**Example**: see `diagnosis-api/usage.py`
 
 ## Querying (DiagnosisDB)
 
-To get started, there is only one way of getting the data out. Do a GET to `/get-diagnosis-keys` to get a big JSON dump of every (TEK, ENIN) tuple in the backend
+Use the `GetDiagnosisKeys(GetKeyRequest)` GRPC call. This will eventually allow filtering by time and health authority source, among other filters.
 
-See `diagnosis-db/get.py` for an example.
+Response is a stream of `GetDiagnosisKeyResponse`
 
-```json
-[
-    {
-        "ENIN": 2647301,
-        "TEK": "22mUXq6CNLZRhXa3h0/oDA=="
-    },
-    {
-        "ENIN": 2647302,
-        "TEK": "U3hF8iVln6ZUn5/de2rqNg=="
-    },
-    {
-        "ENIN": 2647303,
-        "TEK": "TtFYrla3/g7biOosDxQrZQ=="
-    },
-    {
-        "ENIN": 2647304,
-        "TEK": "ulZoE4vMcQV9zMXdFiqX7Q=="
-    }
-]
+```protobuf
+message GetDiagnosisKeyResponse {
+    string error = 1;
+    TimestampedTEK record = 2;
+}
+
+message TimestampedTEK {
+    bytes TEK = 1;
+    uint32 ENIN = 2;
+}
 ```
+
+**Example**: see `diagnosis-api/usage.py`

@@ -1,0 +1,47 @@
+syntax = "proto3";
+package proto;
+
+// import "google/api/annotations.proto";
+
+service DiagnosisDB {
+    rpc AddReport(Report) returns (AddReportResponse) {
+        // option (google.api.http) = {
+        //   post: "/v1/db19/add-report"
+        //   body: "*"
+        // };
+    };
+
+    rpc GetDiagnosisKeys(GetKeyRequest) returns (stream GetDiagnosisKeyResponse) {
+        // option (google.api.http) = {
+        //   post: "/v1/db19/get-diagnosis-keys"
+        //   body: "*"
+        // };
+    };
+}
+
+message Report {
+    bytes authority = 1;
+    repeated TimestampedTEK reports = 2;
+}
+
+message GetKeyRequest {
+    // retrieve keys for the given health authority
+    bytes HAK = 1;
+    // retrieve keys for the given day (ENIN rounded 'down'
+    // to the nearest day)
+    uint32 ENIN = 2;
+}
+
+message AddReportResponse {
+    string error = 1;
+}
+
+message GetDiagnosisKeyResponse {
+    string error = 1;
+    TimestampedTEK record = 2;
+}
+
+message TimestampedTEK {
+    bytes TEK = 1;
+    uint32 ENIN = 2;
+}

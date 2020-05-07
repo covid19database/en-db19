@@ -26,6 +26,7 @@ while True:
 report_schema = {
     "type": "object",
     "additionalProperties": False,
+    "required": ["authority", "reports"],
     "properties": {
         # health authority opaque key
         "authority": {"type": "string"},
@@ -53,9 +54,10 @@ def check_authority(hak):
 
 def insert_report(reports):
     with conn.cursor() as cur:
-        ins = "INSERT INTO reported_keys(TEK, ENIN, HAK) VALUES (%s, %s, %s)"
+        ins = "INSERT INTO reported_keys(TEK, ENIN, HAK) VALUES (%s, %s, %s) \
+               ON CONFLICT DO NOTHING"
         cur.executemany(ins, reports)
-        conn.commit()
+    conn.commit()
 
 
 @app.route('/add-report', methods=['POST'])

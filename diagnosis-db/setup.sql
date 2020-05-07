@@ -1,8 +1,9 @@
 CREATE TABLE IF NOT EXISTS reported_keys (
-    TEK          BYTEA PRIMARY KEY,
+    TEK          BYTEA,
     ENIN         TIMESTAMP NOT NULL,
     HAK          BYTEA NOT NULL,
-    uploaded_at  TIMESTAMP NOT NULL DEFAULT NOW()
+    uploaded_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY(TEK, ENIN)
 );
 
 CREATE TABLE IF NOT EXISTS health_authorities (

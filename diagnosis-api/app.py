@@ -71,7 +71,8 @@ class DB19Server(db19_pb2_grpc.DiagnosisDBServicer):
             values.append(request.HAK)
         if request.ENIN > 0:
             ts = datetime.utcfromtimestamp(request.ENIN * 600)
-            enin_start = datetime(year=ts.year, month=ts.month, day=ts.day)
+            enin_start = datetime(year=ts.year, month=ts.month,
+                                  day=ts.day, tzinfo=ts.tzinfo)
             enin_end = enin_start + timedelta(days=1)
             query += "ENIN >= %s AND ENIN <= %s"
             values.append(enin_start)

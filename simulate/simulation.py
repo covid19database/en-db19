@@ -4,6 +4,7 @@ import grpc
 import random
 import base64
 import array
+import pytz
 from datetime import datetime, timedelta
 
 from Crypto.Cipher import AES
@@ -20,7 +21,7 @@ authority = base64.decodebytes(bytes(authority_b64, 'utf8'))
 class Session:
     def __init__(self, entities=10):
         self.entities = []
-        self.time = datetime(2020, 5, 1)  # May 1st
+        self.time = datetime(2020, 5, 1, tzinfo=pytz.utc)  # May 1st
         for i in range(entities):
             self.entities.append(Entity(f"entity-{i}", self.time))
 
@@ -83,7 +84,7 @@ class Entity:
 
     def determine_exposure(self):
         enin = dt_to_enin(self._time)
-        for r in self.stub.GetDiagnosisKeys(db19_pb2.GetKeyRequest()):
+        for r in self.stub.GetDiagnosisKeys(db19_pb2.GetKeyRequest(ENIN=enin)):
             if len(r.error) > 0:
                 raise Exception(f"could not fetch keys: {r.error}")
             enin = r.record.ENIN
@@ -107,6 +108,7 @@ class Entity:
             enin = dt_to_enin(timestamp)
             self._teks.append(tek)
             self._enins.append(enin)
+            self.determine_exposure()
         self._time = timestamp
         tek = self._teks[-1]
         tekb64 = encodeb64(tek)
@@ -156,5 +158,5 @@ if __name__ == '__main__':
     s = Session(10000)
     for i in range(24*96*60):
         s.step()
-    for e in s.entities:
-        e.determine_exposure()
+    # for e in s.entities:
+    #     e.determine_exposure()

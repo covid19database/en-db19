@@ -4,7 +4,7 @@ import time
 import logging
 from concurrent import futures
 import grpc
-from datetime import datetime
+from datetime import datetime, timedelta
 from util import dt_to_enin
 import psycopg2
 import psycopg2.extras
@@ -62,9 +62,26 @@ class DB19Server(db19_pb2_grpc.DiagnosisDBServicer):
             return db19_pb2.AddReportResponse(error=str(e))
 
     def GetDiagnosisKeys(self, request, context):
+        # request.HAK
+        # request.ENIN # round to nearest day
+        values = []
+        query = "SELECT TEK, ENIN FROM reported_keys WHERE "
+        if len(request.HAK) > 0:
+            query += "HAK = %s"
+            values.append(request.HAK)
+        if request.ENIN > 0:
+            ts = datetime.utcfromtimestamp(request.ENIN * 600)
+            enin_start = datetime(year=ts.year, month=ts.month, day=ts.day)
+            enin_end = enin_start + timedelta(days=1)
+            query += "ENIN >= %s AND ENIN <= %s"
+            values.append(enin_start)
+            values.append(enin_end)
+        if len(values) == 0:
+            query += "true"
         try:
             with self.conn.cursor() as cur:
-                cur.execute("SELECT TEK, ENIN FROM reported_keys")
+                logging.info(f"query {cur.mogrify(query, values)}")
+                cur.execute(query, values)
                 for row in cur:
                     tek_b, enin_ts = row
                     tek = bytes(tek_b)

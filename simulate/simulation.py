@@ -82,6 +82,7 @@ class Entity:
         self._seen_rpis.append(rpi)
 
     def determine_exposure(self):
+        enin = dt_to_enin(self._time)
         for r in self.stub.GetDiagnosisKeys(db19_pb2.GetKeyRequest()):
             if len(r.error) > 0:
                 raise Exception(f"could not fetch keys: {r.error}")

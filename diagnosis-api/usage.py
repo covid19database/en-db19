@@ -4,6 +4,11 @@ import grpc
 import base64
 from util import generate_random_tek
 
+# bottom 2 lines for connecting to SSL
+# creds = grpc.ssl_channel_credentials()
+# channel = grpc.secure_channel('ssl-secured url', creds)
+
+# for default insecure connection
 channel = grpc.insecure_channel('localhost:5000')
 stub = db19_pb2_grpc.DiagnosisDBStub(channel)
 

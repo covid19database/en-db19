@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.backends import default_backend
 
+URL = 'localhost:5000'
 backend = default_backend()
 authority_b64 = '2iUNf7/8pjS/mzjpQwUIuw=='
 authority = base64.decodebytes(bytes(authority_b64, 'utf8'))

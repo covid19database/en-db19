@@ -45,9 +45,20 @@ This should bring up:
 
 We have a simple simulation demonstarting the workflow involved. `N` entities randomly interact and query the database for a configurable number of days. To run:
 
-```
-cd simulate
-python simulation.py
+```bash
+$ cd simulate
+$ time python simulation.py --entities 100 --days 7
+2020-05-02 00:00:00+00:00
+2020-05-03 00:00:00+00:00
+entity-75 was exposed at 2020-05-02 00:00:00
+2020-05-04 00:00:00+00:00
+entity-73 was exposed at 2020-05-03 00:00:00
+entity-75 was exposed at 2020-05-02 00:00:00
+entity-79 was exposed at 2020-05-03 00:00:00
+2020-05-05 00:00:00+00:00
+entity-35 was exposed at 2020-05-04 00:00:00
+entity-67 was exposed at 2020-05-04 00:00:00
+... etc
 ```
 
 ## Reporting (DiagnosisDB)

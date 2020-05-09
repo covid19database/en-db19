@@ -1,3 +1,4 @@
+import argparse
 import db19_pb2_grpc
 import db19_pb2
 import grpc
@@ -171,8 +172,12 @@ def encodeb64(byts):
 
 
 if __name__ == '__main__':
-    s = Session(100)
-    for i in range(96*7):  # 1 week
+    parser = argparse.ArgumentParser(description='Simulate en-db19 workflow')
+    parser.add_argument('-e', '--entities', metavar='entities', type=int)
+    parser.add_argument('-d', '--days', metavar='days', type=int)
+    args = parser.parse_args()
+    s = Session(args.entities)
+    for i in range(96*args.days):  # 1 week
         s.step()
     # for e in s.entities:
     #     e.determine_exposure()

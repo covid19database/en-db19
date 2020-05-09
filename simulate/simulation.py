@@ -13,9 +13,8 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.backends import default_backend
 
 URL = 'localhost:5000'
+PROFESSIONAL_API_KEY='c3b9b61b687b895aff09eb072fb07d33'
 backend = default_backend()
-authority_b64 = '2iUNf7/8pjS/mzjpQwUIuw=='
-authority = base64.decodebytes(bytes(authority_b64, 'utf8'))
 
 
 class Session:
@@ -67,8 +66,22 @@ class Entity:
         if self._tested:
             self._diagnosed = random.random() < 0.25
         if self._diagnosed:
+            # if they are diagnosed, first need to get the authorization key
+            # from the authorized professional
+
+            ############ PROFESSIONAL DOES THIS ############
+            resp = self.stub.GetAuthorizationToken(db19_pb2.TokenRequest(
+                # this is secret
+                api_key=bytes.fromhex(PROFESSIONAL_API_KEY),
+                key_type=db19_pb2.DIAGNOSED,
+            ))
+            if len(resp.error) > 0:
+                raise Exception(f"could not get authorization key {resp.error}")
+            # then auth_key is given to the user
+            ############# BACK TO THE USER NOW ############
+
             resp = self.stub.AddReport(db19_pb2.Report(
-                authority=authority,
+                authorization_key=resp.authorization_key,
                 reports=[
                     db19_pb2.TimestampedTEK(
                         TEK=self._teks[-1],
@@ -84,7 +97,10 @@ class Entity:
 
     def determine_exposure(self):
         enin = dt_to_enin(self._time)
-        for r in self.stub.GetDiagnosisKeys(db19_pb2.GetKeyRequest(ENIN=enin)):
+        #for r in self.stub.GetDiagnosisKeys(db19_pb2.GetKeyRequest(ENIN=enin)):
+        for r in self.stub.GetDiagnosisKeys(db19_pb2.GetKeyRequest(
+            hrange=db19_pb2.HistoricalRange(days=14)
+        )):
             if len(r.error) > 0:
                 raise Exception(f"could not fetch keys: {r.error}")
             enin = r.record.ENIN
@@ -155,8 +171,8 @@ def encodeb64(byts):
 
 
 if __name__ == '__main__':
-    s = Session(10000)
-    for i in range(24*96*60):
+    s = Session(100)
+    for i in range(96*7):  # 1 week
         s.step()
     # for e in s.entities:
     #     e.determine_exposure()

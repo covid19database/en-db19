@@ -5,11 +5,11 @@ import base64
 from util import generate_random_tek
 
 # bottom 2 lines for connecting to SSL
-# creds = grpc.ssl_channel_credentials()
-# channel = grpc.secure_channel('ssl-secured url', creds)
+creds = grpc.ssl_channel_credentials()
+channel = grpc.secure_channel('covid-lighthouse.gtf.fyi:5000', creds)
 
 # for default insecure connection
-channel = grpc.insecure_channel('localhost:5000')
+# channel = grpc.insecure_channel('localhost:5000')
 stub = db19_pb2_grpc.DiagnosisDBStub(channel)
 
 tek, enin = generate_random_tek()

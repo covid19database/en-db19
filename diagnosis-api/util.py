@@ -20,3 +20,7 @@ def dt_to_enin(ts, window_minutes=10):
 
 def now_to_enin():
     return dt_to_enin(datetime.now())
+
+def generate_random_tek():
+    randbytes = [random.getrandbits(8) for i in range(16)]
+    return bytes(randbytes), now_to_enin()

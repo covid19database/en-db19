@@ -41,26 +41,27 @@ This should bring up:
 - Diagnosis Postgres backend (port 5434)
 - Diagnosis Postgres GRPC API (port 5000)
 
-
 ## Reporting (DiagnosisDB)
 
 The diagnosis backend receives TEKs (with timestamps marking the beginning of their 'valid' period) that have been "tainted" by an authority. This authority is trusted to perform a diagnosis of the entity who possesses the TEKs.
 
-Currently we are using a random 16-byte key as the "API key" for an authority. There are two authorities loaded into the database at start:
-- `2iUNf7/8pjS/mzjpQwUIuw==`
-- `V3Qpwr4TU7CICdwowL9rwA==`
-
 Reports use the `AddReport(Report)` GRPC call
 
 ```protobuf
-// sent message
+// message sent by user
 message Report {
-    bytes authority = 1;
+    // a unique authorization key given to the user upon
+    // interaction with an authorized (healthcare) professional
+    bytes authorization_key = 3;
+
+    // a set of timestamp-enin pairs (from the user)
     repeated TimestampedTEK reports = 2;
 }
 
 message TimestampedTEK {
+    // user-generated TEK
     bytes TEK = 1;
+    // corresponding ENIN for the TEK
     uint32 ENIN = 2;
 }
 
@@ -72,6 +73,37 @@ message AddReportResponse {
 
 **Example**: see `diagnosis-api/usage.py`
 
+## Authorization
+
+In order to upload their TEK, ENINs to the backend (e.g. upon a diagnosis by a healthcare provider), a user needs an `authorization key`. An `authorization key` is a random 16-byte key that is given to the user by an authorized professional.
+
+The authorized professional gets an `authorization key` by invoking the `GetAuthorizationToken(TokenRequest)` method on the server API. The caller authenticates to this method by providing an API key which is provided to them out-of-band and is stored in the backend database. *The current prototype has a default API key of `c3b9b61b687b895aff09eb072fb07d33`*
+
+When generating a new `authorization key`, the professional must specify how the key is intended to be used through use of the `KeyType` field. Currently there is just one option (`DIAGNOSED`) but it must be specified in the request.
+
+```protobuf
+message TokenRequest {
+    // secret API key that uniquely identifies an authorized organization
+    bytes api_key = 1;
+    // the kind of key being requested; this is stored in the backend along
+    // with the generated authorization_key
+    KeyType key_type = 2;
+}
+
+message TokenResponse {
+    string error = 1;
+    // unique 16-byte key generated to be given to a user. The generation
+    // of this key means that the association of <authority, auth_key> is
+    // stored in the backend
+    bytes authorization_key = 2;
+}
+
+enum KeyType {
+    UNKNOWN = 0;
+    DIAGNOSED = 1;
+}
+```
+
 ## Querying (DiagnosisDB)
 
 Use the `GetDiagnosisKeys(GetKeyRequest)` GRPC call. This will eventually allow filtering by time and health authority source, among other filters.
@@ -79,9 +111,28 @@ Use the `GetDiagnosisKeys(GetKeyRequest)` GRPC call. This will eventually allow 
 Response is a stream of `GetDiagnosisKeyResponse`
 
 ```protobuf
+// user query to the API
+message GetKeyRequest {
+    // retrieve keys for the given health authority
+    bytes HAK = 1;
+    // retrieve keys for the given day (ENIN rounded 'down'
+    // to the nearest day)
+    uint32 ENIN = 2;
+    // alternatively fetch a temporal range of keys
+    HistoricalRange hrange = 3;
+}
+
+// stream of messages from the server
 message GetDiagnosisKeyResponse {
     string error = 1;
     TimestampedTEK record = 2;
+}
+
+message HistoricalRange {
+    // YYYY-MM-DD  of *end* of day range; defaults to the current day
+    string start_date = 1;
+    // how many days back to retrieve records; defaults to 1
+    uint32 days = 2;
 }
 
 message TimestampedTEK {

@@ -5,7 +5,7 @@ import logging
 from concurrent import futures
 import grpc
 from datetime import datetime, timedelta
-from util import dt_to_enin
+from util import dt_to_enin, generate_authorization_key
 import psycopg2
 import psycopg2.extras
 logging.basicConfig(level=logging.INFO)
@@ -25,27 +25,47 @@ class DB19Server(db19_pb2_grpc.DiagnosisDBServicer):
                 time.sleep(1)
                 continue
 
-    def check_authority(self, hak):
+    def check_api_key(self, api_key):
         with self.conn.cursor() as cur:
-            cur.execute("SELECT * FROM health_authorities WHERE HAK=%s",
-                        (hak,))
+            cur.execute("SELECT * FROM health_authorities WHERE api_key=%s",
+                        (api_key,))
             return cur.fetchone() is not None
 
     def insert_report(self, reports):
         with self.conn.cursor() as cur:
-            ins = "INSERT INTO reported_keys(TEK, ENIN, HAK) VALUES \
-                   (%s, %s, %s) ON CONFLICT DO NOTHING"
+            ins = "INSERT INTO reported_keys(TEK, ENIN, authorization_key) \
+                    VALUES (%s, %s, %s) ON CONFLICT DO NOTHING"
             cur.executemany(ins, reports)
         self.conn.commit()
 
+    def generate_authorization_key(self, health_authority_api_key, key_type):
+        """
+        Returns generated authorization key after storing the mapping in the
+        database
+        """
+        assert key_type in ['DIAGNOSED']
+        auth_key = generate_authorization_key()
+        with self.conn.cursor() as cur:
+            cur.execute("INSERT INTO authorization_keys(authorization_key, \
+                         api_key, key_type) VALUES (%s, %s, %s);",
+                         (auth_key, health_authority_api_key, key_type))
+        self.conn.commit()
+        return auth_key
+
+    def check_authorization_key(self, auth_key):
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT * FROM authorization_keys WHERE \
+                         authorization_key = %s", (auth_key, ))
+            return cur.fetchone() is not None
+
+
     def AddReport(self, request, context):
-        # TODO: check validity of authority
         try:
-            authority_key = request.authority
-            if len(authority_key) != 16:
-                raise Exception("Invalid authority length")
-            if not self.check_authority(authority_key):
-                raise Exception("Invalid authority value")
+            auth_key = request.authorization_key
+            if len(auth_key) != 16:
+                raise Exception("Invalid auth_key length")
+            if not self.check_authorization_key(auth_key):
+                raise Exception("Invalid auth_key value")
 
             to_insert = []
             logging.info(f"validating reports: {len(request.reports)}")
@@ -54,7 +74,7 @@ class DB19Server(db19_pb2_grpc.DiagnosisDBServicer):
                 if len(tek) != 16:
                     raise Exception("Invalid TEK")
                 timestamp = datetime.utcfromtimestamp(report.ENIN * 600)
-                to_insert.append((tek, timestamp, authority_key))
+                to_insert.append((tek, timestamp, auth_key))
             logging.info(f"inserting reports: {len(to_insert)}")
             self.insert_report(to_insert)
             return db19_pb2.AddReportResponse()
@@ -65,20 +85,55 @@ class DB19Server(db19_pb2_grpc.DiagnosisDBServicer):
         # request.HAK
         # request.ENIN # round to nearest day
         values = []
-        query = "SELECT TEK, ENIN FROM reported_keys WHERE "
+
+        authority_query = "SELECT TEK, ENIN FROM reported_keys \
+                           WHERE authority_id = %s \
+                           JOIN authorization_keys USING (authorization_key) \
+                           JOIN health_authorities USING (api_key)"
+
+        enin_query = "SELECT TEK, ENIN FROM reported_keys \
+                      WHERE ENIN >= %s AND ENIN <= %s"
+
+        queries = []
+        values = []
+        # query = f"( {authority_query} ) UNION ( {enin_query} )"
+
         if len(request.HAK) > 0:
-            query += "HAK = %s"
+            queries.append(authority_key)
             values.append(request.HAK)
         if request.ENIN > 0:
             ts = datetime.utcfromtimestamp(request.ENIN * 600)
             enin_start = datetime(year=ts.year, month=ts.month,
                                   day=ts.day, tzinfo=ts.tzinfo)
             enin_end = enin_start + timedelta(days=1)
-            query += "ENIN >= %s AND ENIN <= %s"
+            queries.append(enin_query)
             values.append(enin_start)
             values.append(enin_end)
-        if len(values) == 0:
-            query += "true"
+        if len(request.hrange.start_date) > 0 or request.hrange.days > 0:
+            logging.info(f"hrange: {request.hrange}")
+            # default to current date if start_date not defined
+            if len(request.hrange.start_date) == 0:
+                n = datetime.now()
+                end_time = datetime(year=n.year, month=n.month, day=n.day)
+            else:
+                end_time = datetime.strptime(request.hrange.start_date, '%Y-%m-%d')
+
+            # default to at least 1 day
+            num_days = max(request.hrange.days, 1)
+
+            start_time = end_time - timedelta(days=num_days)
+
+            queries.append(enin_query)
+            values.append(start_time)
+            values.append(end_time)
+
+        if len(queries) == 0:
+            query = "SELECT TEK, ENIN FROM reported_keys"
+            values = []
+        elif len(queries) == 1:
+            query = queries[0]
+        else:
+            query = " UNION ".join([f"( {q} )" for q in queries])
         try:
             with self.conn.cursor() as cur:
                 logging.info(f"query {cur.mogrify(query, values)}")
@@ -92,6 +147,25 @@ class DB19Server(db19_pb2_grpc.DiagnosisDBServicer):
                     )
         except Exception as e:
             yield db19_pb2.GetDiagnosisKeyResponse(error=str(e))
+
+    def GetAuthorizationToken(self, request, context):
+        try:
+            api_key = request.api_key
+            if len(api_key) != 16:
+                raise Exception("Invalid api_key length")
+            if not self.check_api_key(api_key):
+                raise Exception("Invalid api_key value")
+            if request.key_type == db19_pb2.UNKNOWN:
+                raise Exception("Unknown key type")
+            elif request.key_type == db19_pb2.DIAGNOSED:
+                key_type = "DIAGNOSED"
+            else:
+                raise Exception("Unknown key type")
+
+            auth_key = self.generate_authorization_key(api_key, key_type)
+            return db19_pb2.TokenResponse(authorization_key=auth_key)
+        except Exception as e:
+            return db19_pb2.TokenResponse(error=str(e))
 
 
 if __name__ == '__main__':

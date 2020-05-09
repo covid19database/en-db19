@@ -1,17 +1,30 @@
+CREATE TABLE IF NOT EXISTS health_authorities (
+    authority_id    BYTEA NOT NULL,
+    name            TEXT NOT NULL,
+    api_key         BYTEA NOT NULL,
+    UNIQUE(api_key),
+    PRIMARY KEY(authority_id, api_key)
+);
+
+CREATE TABLE IF NOT EXISTS authorization_keys (
+    authorization_key BYTEA PRIMARY KEY,
+    api_key           BYTEA REFERENCES health_authorities(api_key),
+    key_type          TEXT
+);
+
 CREATE TABLE IF NOT EXISTS reported_keys (
-    TEK          BYTEA,
-    ENIN         TIMESTAMP NOT NULL,
-    HAK          BYTEA NOT NULL,
-    uploaded_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+    TEK                BYTEA NOT NULL,
+    ENIN               TIMESTAMP NOT NULL,
+    authorization_key  BYTEA NOT NULL REFERENCES authorization_keys(authorization_key),
+    uploaded_at        TIMESTAMP NOT NULL DEFAULT NOW(),
     PRIMARY KEY(TEK, ENIN)
 );
+
 CREATE INDEX enin_idx ON reported_keys(ENIN);
-CREATE INDEX hak_idx ON reported_keys(HAK);
+CREATE INDEX hak_idx ON reported_keys(authorization_key);
 
-CREATE TABLE IF NOT EXISTS health_authorities (
-    HAK          BYTEA PRIMARY KEY,
-    name         TEXT NOT NULL
+INSERT INTO health_authorities(authority_id, name, api_key) VALUES (
+    decode('da250d7fbffca634bf9b38e9430508bb', 'hex'),
+    'Fake Health Authority #1',
+    decode('c3b9b61b687b895aff09eb072fb07d33', 'hex')
 );
-
-INSERT INTO health_authorities(HAK, name) VALUES (decode('da250d7fbffca634bf9b38e9430508bb', 'hex'), 'A');
-INSERT INTO health_authorities(HAK, name) VALUES (decode('577429c2be1353b08809dc28c0bf6bc0', 'hex'), 'B');

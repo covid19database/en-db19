@@ -1,26 +1,29 @@
 syntax = "proto3";
 package proto;
 
-// import "google/api/annotations.proto";
-
 service DiagnosisDB {
-    rpc AddReport(Report) returns (AddReportResponse) {
-        // option (google.api.http) = {
-        //   post: "/v1/db19/add-report"
-        //   body: "*"
-        // };
-    };
+    // add an authorized report to the database
+    rpc AddReport(Report) returns (AddReportResponse) {};
 
-    rpc GetDiagnosisKeys(GetKeyRequest) returns (stream GetDiagnosisKeyResponse) {
-        // option (google.api.http) = {
-        //   post: "/v1/db19/get-diagnosis-keys"
-        //   body: "*"
-        // };
-    };
+    // query for all TEK+ENIN pairs matching the given filter. Predicates include:
+    // - for a health authority
+    // - between two timestamps
+    rpc GetDiagnosisKeys(GetKeyRequest) returns (stream GetDiagnosisKeyResponse) {};
+
+    // allows authorized healthcare professional to obtain a unique authorization
+    // key to give to a patient
+    rpc GetAuthorizationToken(TokenRequest) returns (TokenResponse) {};
 }
 
 message Report {
-    bytes authority = 1;
+    // deprecated?
+    bytes authority = 1 [deprecated=true];
+
+    // a unique authorization key given to the user upon
+    // interaction with an authorized (healthcare) professional
+    bytes authorization_key = 3;
+
+    // a set of timestamp-enin pairs (from the user)
     repeated TimestampedTEK reports = 2;
 }
 
@@ -30,6 +33,32 @@ message GetKeyRequest {
     // retrieve keys for the given day (ENIN rounded 'down'
     // to the nearest day)
     uint32 ENIN = 2;
+    // alternatively fetch a temporal range of keys
+    HistoricalRange hrange = 3;
+
+}
+
+message HistoricalRange {
+    // YYYY-MM-DD  of *end* of day range; defaults to the current day
+    string start_date = 1;
+    // how many days back to retrieve records; defaults to 1
+    uint32 days = 2;
+}
+
+message TokenRequest {
+    // secret API key that uniquely identifies an authorized organization
+    bytes api_key = 1;
+    // the kind of key being requested; this is stored in the backend along
+    // with the generated authorization_key
+    KeyType key_type = 2;
+}
+
+message TokenResponse {
+    string error = 1;
+    // unique 16-byte key generated to be given to a user. The generation
+    // of this key means that the association of <authority, auth_key> is
+    // stored in the backend
+    bytes authorization_key = 2;
 }
 
 message AddReportResponse {
@@ -44,4 +73,9 @@ message GetDiagnosisKeyResponse {
 message TimestampedTEK {
     bytes TEK = 1;
     uint32 ENIN = 2;
+}
+
+enum KeyType {
+    UNKNOWN = 0;
+    DIAGNOSED = 1;
 }

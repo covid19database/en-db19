@@ -5,79 +5,130 @@ import db19_pb2 as db19__pb2
 
 
 class DiagnosisDBStub(object):
-  # missing associated documentation comment in .proto file
-  pass
+    """Missing associated documentation comment in .proto file"""
 
-  def __init__(self, channel):
-    """Constructor.
+    def __init__(self, channel):
+        """Constructor.
 
-    Args:
-      channel: A grpc.Channel.
-    """
-    self.AddReport = channel.unary_unary(
-        '/proto.DiagnosisDB/AddReport',
-        request_serializer=db19__pb2.Report.SerializeToString,
-        response_deserializer=db19__pb2.AddReportResponse.FromString,
-        )
-    self.GetDiagnosisKeys = channel.unary_stream(
-        '/proto.DiagnosisDB/GetDiagnosisKeys',
-        request_serializer=db19__pb2.GetKeyRequest.SerializeToString,
-        response_deserializer=db19__pb2.GetDiagnosisKeyResponse.FromString,
-        )
-    self.GetAuthorizationToken = channel.unary_unary(
-        '/proto.DiagnosisDB/GetAuthorizationToken',
-        request_serializer=db19__pb2.TokenRequest.SerializeToString,
-        response_deserializer=db19__pb2.TokenResponse.FromString,
-        )
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.AddReport = channel.unary_unary(
+                '/proto.DiagnosisDB/AddReport',
+                request_serializer=db19__pb2.Report.SerializeToString,
+                response_deserializer=db19__pb2.AddReportResponse.FromString,
+                )
+        self.GetDiagnosisKeys = channel.unary_stream(
+                '/proto.DiagnosisDB/GetDiagnosisKeys',
+                request_serializer=db19__pb2.GetKeyRequest.SerializeToString,
+                response_deserializer=db19__pb2.GetDiagnosisKeyResponse.FromString,
+                )
+        self.GetAuthorizationToken = channel.unary_unary(
+                '/proto.DiagnosisDB/GetAuthorizationToken',
+                request_serializer=db19__pb2.TokenRequest.SerializeToString,
+                response_deserializer=db19__pb2.TokenResponse.FromString,
+                )
 
 
 class DiagnosisDBServicer(object):
-  # missing associated documentation comment in .proto file
-  pass
+    """Missing associated documentation comment in .proto file"""
 
-  def AddReport(self, request, context):
-    """add an authorized report to the database
-    """
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
+    def AddReport(self, request, context):
+        """add an authorized report to the database
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
-  def GetDiagnosisKeys(self, request, context):
-    """query for all TEK+ENIN pairs matching the given filter. Predicates include:
-    - for a health authority
-    - between two timestamps
-    """
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
+    def GetDiagnosisKeys(self, request, context):
+        """query for all TEK+ENIN pairs matching the given filter. Predicates include:
+        - for a health authority
+        - between two timestamps
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
-  def GetAuthorizationToken(self, request, context):
-    """allows authorized healthcare professional to obtain a unique authorization
-    key to give to a patient
-    """
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
+    def GetAuthorizationToken(self, request, context):
+        """allows authorized healthcare professional to obtain a unique authorization
+        key to give to a patient
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
 
 def add_DiagnosisDBServicer_to_server(servicer, server):
-  rpc_method_handlers = {
-      'AddReport': grpc.unary_unary_rpc_method_handler(
-          servicer.AddReport,
-          request_deserializer=db19__pb2.Report.FromString,
-          response_serializer=db19__pb2.AddReportResponse.SerializeToString,
-      ),
-      'GetDiagnosisKeys': grpc.unary_stream_rpc_method_handler(
-          servicer.GetDiagnosisKeys,
-          request_deserializer=db19__pb2.GetKeyRequest.FromString,
-          response_serializer=db19__pb2.GetDiagnosisKeyResponse.SerializeToString,
-      ),
-      'GetAuthorizationToken': grpc.unary_unary_rpc_method_handler(
-          servicer.GetAuthorizationToken,
-          request_deserializer=db19__pb2.TokenRequest.FromString,
-          response_serializer=db19__pb2.TokenResponse.SerializeToString,
-      ),
-  }
-  generic_handler = grpc.method_handlers_generic_handler(
-      'proto.DiagnosisDB', rpc_method_handlers)
-  server.add_generic_rpc_handlers((generic_handler,))
+    rpc_method_handlers = {
+            'AddReport': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddReport,
+                    request_deserializer=db19__pb2.Report.FromString,
+                    response_serializer=db19__pb2.AddReportResponse.SerializeToString,
+            ),
+            'GetDiagnosisKeys': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetDiagnosisKeys,
+                    request_deserializer=db19__pb2.GetKeyRequest.FromString,
+                    response_serializer=db19__pb2.GetDiagnosisKeyResponse.SerializeToString,
+            ),
+            'GetAuthorizationToken': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAuthorizationToken,
+                    request_deserializer=db19__pb2.TokenRequest.FromString,
+                    response_serializer=db19__pb2.TokenResponse.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'proto.DiagnosisDB', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+
+
+ # This class is part of an EXPERIMENTAL API.
+class DiagnosisDB(object):
+    """Missing associated documentation comment in .proto file"""
+
+    @staticmethod
+    def AddReport(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/proto.DiagnosisDB/AddReport',
+            db19__pb2.Report.SerializeToString,
+            db19__pb2.AddReportResponse.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetDiagnosisKeys(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/proto.DiagnosisDB/GetDiagnosisKeys',
+            db19__pb2.GetKeyRequest.SerializeToString,
+            db19__pb2.GetDiagnosisKeyResponse.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetAuthorizationToken(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/proto.DiagnosisDB/GetAuthorizationToken',
+            db19__pb2.TokenRequest.SerializeToString,
+            db19__pb2.TokenResponse.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)

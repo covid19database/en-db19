@@ -35,7 +35,6 @@ message GetKeyRequest {
     uint32 ENIN = 2;
     // alternatively fetch a temporal range of keys
     HistoricalRange hrange = 3;
-
 }
 
 message HistoricalRange {

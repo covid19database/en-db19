@@ -41,6 +41,15 @@ This should bring up:
 - Diagnosis Postgres backend (port 5434)
 - Diagnosis Postgres GRPC API (port 5000)
 
+### Simulation
+
+We have a simple simulation demonstarting the workflow involved. `N` entities randomly interact and query the database for a configurable number of days. To run:
+
+```
+cd simulate
+python simulation.py
+```
+
 ## Reporting (DiagnosisDB)
 
 The diagnosis backend receives TEKs (with timestamps marking the beginning of their 'valid' period) that have been "tainted" by an authority. This authority is trusted to perform a diagnosis of the entity who possesses the TEKs.
